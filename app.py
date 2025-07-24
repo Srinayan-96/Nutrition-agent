@@ -12,7 +12,6 @@ load_dotenv()
 
 app = Flask(__name__)
 
-
 # Watsonx credentials
 API_KEY = os.getenv("API_KEY")
 PROJECT_ID = os.getenv("PROJECT_ID")
@@ -51,7 +50,7 @@ def get_access_token():
     response = requests.post(url, headers=headers, data=data)
     return response.json()["access_token"]
 
-# Generate meal plan using Watsonx REST API
+# Generate meal plan using Watsonx REST API with error handling
 def generate_meal_plan(prompt):
     access_token = get_access_token()
     url = f"https://{REGION}.ml.cloud.ibm.com/ml/v1/text/generation?version=2024-05-28"
@@ -64,8 +63,19 @@ def generate_meal_plan(prompt):
         "project_id": PROJECT_ID,
         "input": prompt
     }
+
     response = requests.post(url, headers=headers, json=body)
-    return response.json()["results"][0]["generated_text"]
+
+    try:
+        result = response.json()
+        if "results" not in result:
+            print("❌ Watsonx API response:", result)
+            raise ValueError("Watsonx response missing 'results' field.")
+        return result["results"][0]["generated_text"]
+
+    except Exception as e:
+        print("⚠️ Watsonx error:", str(e))
+        raise
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -102,9 +112,6 @@ def generate():
 def home():
     return '✅ Nutrition Agent API is running! Use POST /generate with JSON body.'
 
-
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # default to 5000 if not set
+    port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-
-
